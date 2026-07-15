@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.local
+
+# Models / artifacts
+backend/models/*.joblib
+backend/models/*.json
+!backend/models/.gitkeep
+
+# Data dumps
+*.csv
+!docs/**/*.csv
+*.sqlite3
+*.db
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Артефакт инкрементальной сборки TypeScript
+tsconfig.tsbuildinfo
