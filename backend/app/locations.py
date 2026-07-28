@@ -2,7 +2,8 @@
 
 Координаты получены геокодированием официальных адресов через OpenStreetMap
 (Nominatim). Общежитие на Тургут Озала подписано в OSM как «Общежитие КБТУ» —
-совпадение подтверждено; по Ислама Каримова геокодер дал только уровень улицы.
+совпадение подтверждено; по Ислама Каримова геокодер дал только уровень улицы,
+поэтому точка помечена `verified=False`.
 
 О пространственном разрешении источника. Open-Meteo отдаёт не замеры, а
 результат расчётной модели на регулярной сетке. Проверка часовых рядов за
@@ -33,6 +34,8 @@ class CampusLocation:
     lat: float
     lon: float
     description: str = ""
+    verified: bool = False
+    """Координаты подтверждены геокодированием до конкретного здания."""
 
 
 CAMPUS_LOCATIONS: tuple[CampusLocation, ...] = (
@@ -42,6 +45,7 @@ CAMPUS_LOCATIONS: tuple[CampusLocation, ...] = (
         lat=43.25573,
         lon=76.94313,
         description="Главное здание университета, улица Толе би, 59",
+        verified=True,
     ),
     CampusLocation(
         code="dorm_ozala",
@@ -49,6 +53,7 @@ CAMPUS_LOCATIONS: tuple[CampusLocation, ...] = (
         lat=43.25219,
         lon=76.88085,
         description="Микрорайон Тастак-3, Алмалинский район, 6 этажей",
+        verified=True,
     ),
     CampusLocation(
         code="dorm_karimova",
@@ -56,6 +61,7 @@ CAMPUS_LOCATIONS: tuple[CampusLocation, ...] = (
         lat=43.23704,
         lon=76.88516,
         description="Микрорайон Тастак-3, Алмалинский район, два корпуса по 5 этажей",
+        verified=False,
     ),
 )
 
