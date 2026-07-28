@@ -13,6 +13,13 @@ class LocationOut(BaseModel):
     lat: float = Field(examples=[43.2364])
     lon: float = Field(examples=[76.9457])
     description: str = ""
+    verified: bool = Field(
+        default=False,
+        description=(
+            "Координаты сверены с официальным адресом. Для неподтверждённых точек "
+            "положение задано приблизительно и подлежит уточнению."
+        ),
+    )
 
 
 class RecommendationOut(BaseModel):
@@ -73,6 +80,10 @@ class ForecastPointOut(BaseModel):
 
 
 class ForecastOut(BaseModel):
+    # Pydantic резервирует префикс model_ под собственные атрибуты; поле
+    # model_version — часть публичного контракта API, поэтому защиту снимаем.
+    model_config = ConfigDict(protected_namespaces=())
+
     location: str
     model_version: str
     generated_at: datetime | None

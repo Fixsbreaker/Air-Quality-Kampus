@@ -68,6 +68,7 @@ def get_current(
             lat=location.lat,
             lon=location.lon,
             description=location.description,
+            verified=location.verified,
         ),
         ts=row.ts,
         ts_local=to_local(row.ts),

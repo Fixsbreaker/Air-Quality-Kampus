@@ -33,6 +33,7 @@ def list_locations() -> list[LocationOut]:
             lat=location.lat,
             lon=location.lon,
             description=location.description,
+            verified=location.verified,
         )
         for location in CAMPUS_LOCATIONS
     ]
