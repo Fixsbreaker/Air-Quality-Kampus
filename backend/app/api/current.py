@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.cache import build_key, get_cache
 from app.db import get_db
 from app.deps import location_dep, to_local, utcnow
 from app.locations import CampusLocation
@@ -37,6 +38,14 @@ def get_current(
 ) -> CurrentOut:
     now = utcnow()
 
+    # Данные обновляются раз в час, а запрашиваются постоянно — ответ кэшируется.
+    # Кэш сбрасывается принудительно после каждого сбора данных, поэтому TTL
+    # здесь лишь страховка на случай, если сброс не отработал.
+    cache = get_cache()
+    cache_key = build_key("current", location.code)
+    if (cached := cache.get(cache_key)) is not None:
+        return CurrentOut.model_validate(cached)
+
     row = db.scalars(
         select(Measurement)
         .where(
@@ -61,7 +70,7 @@ def get_current(
     if row.aqi is not None:
         recommendation = RecommendationOut(**recommend(row.aqi).as_dict())
 
-    return CurrentOut(
+    payload = CurrentOut(
         location=LocationOut(
             code=location.code,
             title=location.title,
@@ -83,3 +92,6 @@ def get_current(
         recommendation=recommendation,
         stale=(now - row.ts) > timedelta(hours=STALE_AFTER_HOURS),
     )
+
+    cache.set(cache_key, payload.model_dump(mode="json"))
+    return payload

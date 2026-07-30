@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # ---------- База данных ----------
     database_url: str = "postgresql+psycopg://aqi:aqi_password@localhost:5432/aqi"
 
+    # ---------- Кэш (нереляционное хранилище) ----------
+    redis_url: str = "redis://localhost:6379/0"
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = Field(default=300, ge=1, le=3600)
+
     # ---------- Источники данных ----------
     open_meteo_aq_url: str = "https://air-quality-api.open-meteo.com/v1/air-quality"
     open_meteo_weather_url: str = "https://api.open-meteo.com/v1/forecast"
