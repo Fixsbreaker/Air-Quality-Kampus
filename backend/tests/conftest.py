@@ -24,6 +24,8 @@ os.environ["APP_ENV"] = "test"
 os.environ["ADMIN_TOKEN"] = "test-admin-token"
 os.environ["AIRKAZ_ENABLED"] = "false"
 os.environ["AQI_BREAKPOINTS"] = "epa_2024"
+# Кэш в тестах выключен: они не должны зависеть от запущенного Redis.
+os.environ["CACHE_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
