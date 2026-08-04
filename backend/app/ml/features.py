@@ -13,7 +13,7 @@ multi-horizon): вместо 48 отдельных моделей обучает
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -36,9 +36,21 @@ WEATHER_COLUMNS = ("temp", "wind_speed", "humidity", "pressure")
 LOCATION_CODES = tuple(loc.code for loc in CAMPUS_LOCATIONS)
 
 
-def load_frame(db: Session, location: str, days: int = 730) -> pd.DataFrame:
-    """Собрать часовой ряд «загрязнение + погода» по одной точке кампуса."""
-    since = utcnow() - timedelta(days=days)
+def load_frame(
+    db: Session, location: str, days: int = 730, until: datetime | None = None
+) -> pd.DataFrame:
+    """Собрать часовой ряд «загрязнение + погода» по одной точке кампуса.
+
+    Верхняя граница `until` по умолчанию равна текущему моменту, и это
+    принципиально. Open-Meteo вместе с прошлым отдаёт собственный прогноз на
+    двое суток вперёд, и эти строки тоже лежат в measurements (позже они
+    перезаписываются фактическими значениями). Без отсечки модель приняла бы
+    чужой прогноз за наблюдение: обучалась бы на нём и строила бы свой прогноз
+    от точки, которая ещё не наступила.
+    """
+    now = utcnow()
+    since = now - timedelta(days=days)
+    until = until or now
 
     stmt = (
         select(
@@ -62,6 +74,7 @@ def load_frame(db: Session, location: str, days: int = 730) -> pd.DataFrame:
             Measurement.location == location,
             Measurement.source == SOURCE,
             Measurement.ts >= since,
+            Measurement.ts <= until,
         )
         .order_by(Measurement.ts)
     )

@@ -112,3 +112,43 @@ class TestBuildSupervised:
         assert data["target"].isna().sum() == 0
         # Последние 48 часов не имеют цели и не должны попасть в выборку
         assert data["ts"].max() <= frame.index[-49]
+
+
+class TestLoadFrame:
+    """Регрессия: Open-Meteo вместе с фактом отдаёт собственный прогноз на
+    двое суток вперёд, и эти строки лежат в той же таблице. Модель обязана
+    видеть только уже наступившие часы."""
+
+    def test_future_rows_are_cut_off(self, db):
+        from app.ml.features import load_frame
+        from app.models import utcnow
+        from tests.conftest import make_measurement
+
+        now = utcnow().replace(minute=0, second=0, microsecond=0)
+        for offset in (-3, -2, -1, 0):
+            db.add(make_measurement(now + pd.Timedelta(hours=offset).to_pytimedelta()))
+        for offset in (1, 24, 48):
+            db.add(make_measurement(now + pd.Timedelta(hours=offset).to_pytimedelta()))
+        db.commit()
+
+        frame = load_frame(db, "main", days=30)
+
+        assert not frame.empty
+        assert frame.index.max() <= pd.Timestamp(now)
+        assert len(frame) == 4
+
+    def test_explicit_until_is_respected(self, db):
+        from app.ml.features import load_frame
+        from app.models import utcnow
+        from tests.conftest import make_measurement
+
+        now = utcnow().replace(minute=0, second=0, microsecond=0)
+        for offset in (-5, -4, -3, -2, -1):
+            db.add(make_measurement(now + pd.Timedelta(hours=offset).to_pytimedelta()))
+        db.commit()
+
+        cutoff = now - pd.Timedelta(hours=3).to_pytimedelta()
+        frame = load_frame(db, "main", days=30, until=cutoff)
+
+        assert frame.index.max() <= pd.Timestamp(cutoff)
+        assert len(frame) == 3
