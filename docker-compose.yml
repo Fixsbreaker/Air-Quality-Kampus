@@ -55,6 +55,28 @@ services:
       timeout: 5s
       retries: 5
 
+  worker:
+    build: ./backend
+    container_name: aqi_worker
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - models:/app/models
+    command: ["python", "-m", "app.worker"]
+
+  bot:
+    build: ./bot
+    container_name: aqi_bot
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["bot"]
+
 volumes:
   pgdata:
   models:
