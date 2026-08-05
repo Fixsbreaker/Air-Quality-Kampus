@@ -217,11 +217,29 @@ def build_dataset(
     точками модель ловит через one-hot признаки loc_*.
     """
     frames: list[pd.DataFrame] = []
+    seen_series: dict[str, str] = {}
+
     for location in CAMPUS_LOCATIONS:
         raw = load_frame(db, location.code, days=days)
         if raw.empty:
             logger.warning("Нет данных для локации %s", location.code)
             continue
+
+        # Источник считает воздух по сетке, и несколько объектов университета
+        # попадают в одну её ячейку. Обучаться на копиях одного ряда бесполезно:
+        # объём выборки растёт, а информации в ней не прибавляется. Одинаковые
+        # ряды отсеиваются по хешу значений целевой переменной.
+        fingerprint = pd.util.hash_pandas_object(raw[TARGET].fillna(-1), index=True).sum()
+        key = str(fingerprint)
+        if key in seen_series:
+            logger.info(
+                "Локация %s дублирует ряд %s (общая ячейка сетки источника) — пропущена",
+                location.code,
+                seen_series[key],
+            )
+            continue
+        seen_series[key] = location.code
+
         supervised = build_supervised(raw, horizons, location.code)
         if not supervised.empty:
             frames.append(supervised)
