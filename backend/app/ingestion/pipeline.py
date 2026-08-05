@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
+from app.cache import get_cache
 from app.ingestion.airkaz import SOURCE_NAME as AIRKAZ_SOURCE
 from app.ingestion.airkaz import fetch_nearby
 from app.ingestion.cleaning import clean_air_quality
@@ -86,12 +87,17 @@ def ingest_location(
 def ingest_once(db: Session, *, past_days: int = 2, forecast_days: int = 2) -> list[IngestResult]:
     """Часовой запуск по всем точкам кампуса."""
     with OpenMeteoClient() as client:
-        return [
+        results = [
             ingest_location(
                 db, client, location, past_days=past_days, forecast_days=forecast_days
             )
             for location in CAMPUS_LOCATIONS
         ]
+
+    # Пришли новые наблюдения — кэшированные ответы устарели. Без принудительного
+    # сброса дашборд показывал бы прошлый час до истечения TTL.
+    get_cache().delete_prefix("aqi:current")
+    return results
 
 
 def _date_chunks(start: date, end: date, size_days: int = CHUNK_DAYS):

@@ -17,6 +17,7 @@ import pandas as pd
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.cache import get_cache
 from app.config import settings
 from app.locations import CAMPUS_LOCATIONS
 from app.ml import registry
@@ -143,6 +144,9 @@ def refresh_all(db: Session) -> dict[str, int]:
         except ValueError as exc:
             logger.warning("Прогноз для %s пропущен: %s", location.code, exc)
             written[location.code] = 0
+
+    # Прогноз пересчитан — сбрасываем кэшированные ответы эндпоинта.
+    get_cache().delete_prefix("aqi:forecast")
 
     logger.info("Прогноз обновлён (%s): %s", metadata.version, written)
     return written
