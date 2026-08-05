@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.cache import build_key, get_cache
 from app.config import settings
 from app.db import get_db
 from app.deps import location_dep
@@ -32,6 +33,11 @@ def get_forecast(
     location: Annotated[CampusLocation, Depends(location_dep)],
     hours: Annotated[int, Query(ge=1, le=168, description="Глубина прогноза в часах")] = 48,
 ) -> ForecastOut:
+    cache = get_cache()
+    cache_key = build_key("forecast", location.code, hours)
+    if (cached := cache.get(cache_key)) is not None:
+        return ForecastOut.model_validate(cached)
+
     rows = latest_forecast(db, location.code, hours=hours)
 
     if not rows:
@@ -46,7 +52,7 @@ def get_forecast(
     points = [ForecastPointOut.model_validate(row) for row in rows]
     worst = max(points, key=lambda point: point.aqi_pred)
 
-    return ForecastOut(
+    payload = ForecastOut(
         location=location.code,
         model_version=rows[0].model_version,
         generated_at=rows[0].created_at,
@@ -54,3 +60,6 @@ def get_forecast(
         points=points,
         worst=worst,
     )
+
+    cache.set(cache_key, payload.model_dump(mode="json"))
+    return payload
