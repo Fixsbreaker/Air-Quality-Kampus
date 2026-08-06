@@ -1,0 +1,572 @@
+/*
+  Дизайн-система дашборда.
+
+  Визуальный язык построен на приёмах современных финтех-лендингов:
+  крупная типографика со средними (не жирными) весами и отрицательным
+  трекингом, плоские белые карточки на светло-серо-синем фоне, скруглённые
+  пилюли вместо прямоугольных кнопок, один насыщенный акцентный цвет.
+
+  Важное ограничение: акцентный оранжевый — цвет ИНТЕРФЕЙСА (кнопки,
+  активные состояния, линия прогноза). Цвета состояния воздуха берутся
+  из шкалы US EPA и не подчиняются брендовой палитре — здесь цвет
+  является данными, а не оформлением.
+*/
+
+:root {
+  /* Интерфейсная палитра */
+  --accent: #ff5000;
+  --accent-deep: #bb2b09;
+  --accent-soft: #ffe7dc;
+  --ink: #121416;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --muted: rgba(23, 28, 38, 0.45);
+  --muted-strong: rgba(23, 28, 38, 0.65);
+  --line: rgba(23, 28, 38, 0.1);
+
+  /* Радиусы */
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Тени — мягкие и почти незаметные, объём даёт не тень, а воздух */
+  --shadow: 0 1px 2px rgb(18 20 22 / 4%), 0 12px 32px rgb(18 20 22 / 5%);
+  --shadow-lift: 0 2px 4px rgb(18 20 22 / 5%), 0 18px 44px rgb(18 20 22 / 9%);
+
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  color: var(--ink);
+  font-synthesis-weight: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+/* Крупный кегль всегда идёт с отрицательным трекингом и плотным интерлиньяжем —
+   это главный признак типографики референса. */
+h1,
+h2 {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+/* ------------------------------------------------------------ каркас */
+
+.page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 18px;
+  margin-bottom: 8px;
+  /* Сплошная подложка вместо backdrop-filter: полупрозрачное размытие
+     смазывало крупные цифры плашки, проезжающие под шапкой. */
+  background: var(--bg);
+  box-shadow: 0 10px 18px -14px rgb(18 20 22 / 30%);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.brand__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  flex: none;
+}
+
+.brand__sub {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.masthead {
+  padding: 28px 0 32px;
+}
+
+.masthead h1 {
+  font-size: clamp(34px, 5.4vw, 60px);
+  max-width: 16ch;
+}
+
+.masthead p {
+  margin-top: 14px;
+  max-width: 46ch;
+  font-size: clamp(16px, 1.4vw, 19px);
+  line-height: 1.45;
+  color: var(--muted-strong);
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------ пилюли */
+
+.pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 10px 18px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.pill.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.pill.is-active:hover {
+  transform: none;
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------ сетка */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+}
+
+.card {
+  grid-column: span 12;
+  background: var(--surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.card--half {
+  grid-column: span 7;
+}
+
+.card--side {
+  grid-column: span 5;
+}
+
+.card__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.card h2 {
+  font-size: 24px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* --------------------------------------------------- главная плашка */
+
+.hero {
+  grid-column: span 12;
+  border-radius: var(--r-xl);
+  padding: clamp(28px, 4vw, 44px);
+  position: relative;
+  overflow: hidden;
+  transition: background 0.4s ease;
+}
+
+.hero__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hero__time {
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+/* Гигантское число — центральный приём макета. Интерлиньяж меньше единицы,
+   трекинг сильно отрицательный, иначе на таком кегле цифры «разваливаются». */
+.hero__figure {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: clamp(16px, 3vw, 28px) 0 0;
+}
+
+.hero__number {
+  font-size: clamp(96px, 17vw, 196px);
+  font-weight: 500;
+  line-height: 0.86;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero__unit {
+  font-size: clamp(14px, 1.4vw, 18px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+  padding-top: 0.6em;
+}
+
+.hero__category {
+  font-size: clamp(28px, 4.4vw, 52px);
+  margin-top: 8px;
+}
+
+.hero__text {
+  margin-top: 14px;
+  max-width: 34ch;
+  font-size: clamp(16px, 1.5vw, 20px);
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+
+.hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+/* Outline-пилюля на цветном фоне — приём с кнопки «Get card» референса. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border: 1.5px solid currentColor;
+  border-radius: var(--r-sm);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  opacity: 0.92;
+}
+
+.chip--no {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.chip__mark {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.hero__note {
+  margin-top: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.72;
+  max-width: 48ch;
+}
+
+.hero__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 32px 0 0;
+  padding-top: 26px;
+  /* Разделитель наследует цвет текста плашки, но приглушённый: сплошная
+     линия в полную силу спорит с цифрами и утяжеляет блок. */
+  border-top: 1.5px solid color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.stat dt {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0.68;
+}
+
+.stat dd {
+  margin: 6px 0 0;
+  font-size: clamp(26px, 3.2vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat small {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0.6;
+  margin-left: 4px;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  background: rgb(18 20 22 / 14%);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ------------------------------------------------------------ карта */
+
+.map {
+  height: 380px;
+  width: 100%;
+  border-radius: var(--r-lg);
+  z-index: 0;
+}
+
+.map .leaflet-container {
+  font-family: inherit;
+}
+
+/* Значение AQI печатается прямо внутри кружка на карте, поэтому подложка
+   и стрелка стандартной подсказки Leaflet убираются. */
+.leaflet-tooltip.map-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+
+.leaflet-tooltip::before {
+  display: none;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--r-md);
+  font-family: inherit;
+}
+
+/* ------------------------------------------------------------ прогноз */
+
+.forecast__peak {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 22px;
+  padding: 16px 20px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--accent-deep);
+}
+
+.forecast__peak b {
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------ прочее */
+
+/* Оговорка об ограничении данных — тихая, но постоянно видимая. */
+.note {
+  margin: -6px 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--r-sm);
+  background: rgb(23 28 38 / 4%);
+  color: var(--muted-strong);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.alert {
+  grid-column: span 12;
+  padding: 16px 20px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: 14.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.alert--error {
+  background: #fee2e2;
+  color: #8c1010;
+}
+
+/* Тёмный подвал — контрастная точка в конце страницы. */
+.footer {
+  margin-top: 40px;
+  padding: 36px 32px;
+  border-radius: var(--r-xl);
+  background: var(--ink);
+  color: rgb(255 255 255 / 62%);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.65;
+  letter-spacing: -0.01em;
+}
+
+.footer strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------ адаптив */
+
+@media (max-width: 1000px) {
+  .card--half,
+  .card--side {
+    grid-column: span 12;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 16px 14px 56px;
+  }
+
+  /* На узком экране три пилюли переносились на три строки, и липкая шапка
+     занимала треть экрана. Прокручиваем их в одну строку и отпускаем шапку. */
+  .topbar {
+    position: static;
+    box-shadow: none;
+    align-items: flex-start;
+  }
+
+  .topbar .pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -14px;
+    padding: 2px 14px;
+    scroll-snap-type: x proximity;
+  }
+
+  .topbar .pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar .pill {
+    flex: none;
+    scroll-snap-align: start;
+  }
+
+  .card {
+    padding: 22px 18px;
+    border-radius: var(--r-lg);
+  }
+
+  .hero {
+    border-radius: var(--r-lg);
+  }
+
+  .hero__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+  }
+
+  .masthead {
+    padding: 12px 0 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
