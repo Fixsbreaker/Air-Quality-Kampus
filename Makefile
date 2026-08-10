@@ -7,8 +7,8 @@ help: ## Показать список команд
 init: ## Создать .env из шаблона
 	@test -f .env || cp .env.example .env && echo ".env готов"
 
-up: ## Поднять db + api + frontend
-	$(COMPOSE) up -d --build db api frontend
+up: ## Поднять db + redis + api + frontend
+	$(COMPOSE) up -d --build db redis api frontend
 
 up-all: ## Поднять всё, включая worker и бота
 	$(COMPOSE) --profile bot up -d --build
@@ -43,6 +43,14 @@ test: ## Запустить тесты
 test-cov: ## Тесты с покрытием
 	cd backend && pytest --cov=app --cov-report=term-missing
 
+loadtest: ## Нагрузочный тест (нужен поднятый стек и наполненная база)
+	cd backend && .venv/bin/locust -f ../loadtest/locustfile.py --host http://localhost:8000 \
+		--headless --users $(or $(USERS),100) --spawn-rate 10 --run-time $(or $(TIME),2m) \
+		--html ../loadtest/report.html
+
+redis-cli: ## Консоль Redis
+	$(COMPOSE) exec redis redis-cli
+
 lint: ## Проверка стиля
 	cd backend && ruff check app tests scripts
 
@@ -52,4 +60,4 @@ fmt: ## Автоформатирование
 psql: ## Консоль PostgreSQL
 	$(COMPOSE) exec db psql -U $${POSTGRES_USER:-aqi} -d $${POSTGRES_DB:-aqi}
 
-.PHONY: help init up up-all down logs migrate revision backfill ingest train forecast test test-cov lint fmt psql
+.PHONY: help init up up-all down logs migrate revision backfill ingest train forecast test test-cov loadtest redis-cli lint fmt psql

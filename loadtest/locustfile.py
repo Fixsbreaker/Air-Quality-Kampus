@@ -29,7 +29,7 @@ from __future__ import annotations
 import random
 from datetime import datetime, timedelta, timezone
 
-from locust import HttpUser, between, task
+from locust import HttpUser, between, events, task
 
 LOCATIONS = ["main", "dorm_ozala", "dorm_karimova"]
 ADMIN_TOKEN = "change-me-in-production"
@@ -98,6 +98,44 @@ class DashboardUser(HttpUser):
         self.client.get("/health", name="/health")
 
 
+class BotUser(HttpUser):
+    """Нагрузка со стороны Telegram-бота.
+
+    Бот ходит в API на каждую команду, а при утренней рассылке — ещё и
+    списком подписчиков. Отдельный класс нужен, чтобы видеть его вклад
+    в общую нагрузку отдельно от веб-дашборда.
+    """
+
+    wait_time = between(2, 8)
+
+    @task(6)
+    def command_now(self):
+        self.client.get(
+            "/api/current", params={"location": "main"}, name="[бот] /api/current"
+        )
+
+    @task(3)
+    def command_forecast(self):
+        self.client.get(
+            "/api/forecast",
+            params={"location": "main", "hours": 24},
+            name="[бот] /api/forecast",
+        )
+
+    @task(1)
+    def subscribe(self):
+        """Подписка идемпотентна, поэтому повторные вызовы безопасны."""
+        self.client.post(
+            "/api/subscribe",
+            json={
+                "tg_id": random.randint(10**8, 10**9),
+                "threshold_aqi": random.choice([80, 100, 120, 150]),
+                "location": random.choice(LOCATIONS),
+            },
+            name="[бот] /api/subscribe",
+        )
+
+
 class AdminUser(HttpUser):
     """Редкая, но тяжёлая нагрузка: выгрузка CSV для администрации."""
 
@@ -115,3 +153,32 @@ class AdminUser(HttpUser):
             headers={"X-Admin-Token": ADMIN_TOKEN},
             name="/api/admin/report (30 дней)",
         )
+
+
+@events.quitting.add_listener
+def _check_thresholds(environment, **_kwargs):
+    """Проверить пороги в конце прогона и выставить код возврата.
+
+    Это превращает нагрузочный тест из «посмотрели график» в проверку,
+    которую можно запускать в конвейере: при нарушении порогов процесс
+    завершается с ненулевым кодом.
+    """
+    stats = environment.stats
+
+    if stats.total.fail_ratio > 0.01:
+        print(f"ПРОВАЛ: доля ошибок {stats.total.fail_ratio:.2%} превышает 1 %")
+        environment.process_exit_code = 1
+        return
+
+    current = stats.get("/api/current", "GET")
+    if current.num_requests:
+        p50 = current.get_response_time_percentile(0.5)
+        p95 = current.get_response_time_percentile(0.95)
+        print(f"/api/current: медиана {p50:.0f} мс, 95-й перцентиль {p95:.0f} мс")
+        if p50 > CURRENT_P50_BUDGET_MS:
+            print(f"ПРОВАЛ: медиана {p50:.0f} мс превышает бюджет {CURRENT_P50_BUDGET_MS} мс")
+            environment.process_exit_code = 1
+            return
+
+    environment.process_exit_code = 0
+    print("Нагрузочный тест пройден: пороги соблюдены")
