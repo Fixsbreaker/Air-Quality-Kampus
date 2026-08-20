@@ -54,6 +54,7 @@ app = FastAPI(
     openapi_tags=TAGS_METADATA,
     docs_url="/docs",
     redoc_url="/redoc",
+    root_path=settings.root_path,
     lifespan=lifespan,
     contact={"name": "Команда проекта", "url": "https://kbtu.edu.kz"},
     license_info={"name": "MIT"},

@@ -1,0 +1,130 @@
+name: kbtu-air-quality
+
+# Конфигурация для развёртывания на сервере КБТУ (esg.kbtu.kz/air-quality).
+#
+# Отличия от локальной сборки:
+#   * ни один сервис не публикует порты на хост — только expose;
+#   * наружу, в общую сеть esg-network, смотрит единственный сервис aqi-web,
+#     к нему обращается публичный nginx по имени контейнера;
+#   * база данных, кэш, API и фоновые задачи изолированы в приватной сети
+#     проекта и недоступны другим проектам на сервере;
+#   * фронтенд собирается с базовым путём проекта.
+#
+# Запуск:
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+
+services:
+  aqi-db:
+    image: postgres:16-alpine
+    container_name: aqi_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    networks:
+      - aqi-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  aqi-redis:
+    image: redis:7-alpine
+    container_name: aqi_redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    expose:
+      - "6379"
+    networks:
+      - aqi-internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  aqi-api:
+    build: ./backend
+    container_name: aqi_api
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      aqi-db:
+        condition: service_healthy
+      aqi-redis:
+        condition: service_healthy
+    expose:
+      - "8000"
+    networks:
+      - aqi-internal
+    volumes:
+      - models:/app/models
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  aqi-worker:
+    build: ./backend
+    container_name: aqi_worker
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      aqi-api:
+        condition: service_healthy
+    networks:
+      - aqi-internal
+    volumes:
+      - models:/app/models
+    command: ["python", "-m", "app.worker"]
+
+  aqi-bot:
+    build: ./bot
+    container_name: aqi_bot
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      aqi-api:
+        condition: service_healthy
+    networks:
+      - aqi-internal
+    profiles: ["bot"]
+
+  aqi-web:
+    build:
+      context: ./frontend
+      args:
+        # Базовый путь проекта на сервере. Попадает и в ссылки на статику,
+        # и в адрес API: фронтенд обращается на <путь>/api/, публичный nginx
+        # снимает префикс, внутренний nginx проксирует запрос в aqi-api.
+        VITE_BASE_PATH: ${PROJECT_BASE_PATH:-/air-quality/}
+    container_name: aqi_frontend
+    restart: unless-stopped
+    depends_on:
+      - aqi-api
+    expose:
+      - "80"
+    # Единственный сервис в общей сети: только его видит публичный nginx.
+    networks:
+      - aqi-internal
+      - esg-network
+
+networks:
+  aqi-internal:
+    driver: bridge
+  esg-network:
+    external: true
+
+volumes:
+  pgdata:
+  models:
