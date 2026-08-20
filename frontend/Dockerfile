@@ -2,7 +2,16 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-ARG VITE_API_BASE_URL=http://localhost:8000
+# Базовый путь приложения. На сервере КБТУ проект отдаётся по пути вида
+# /air-quality/, локально — с корня. Значение попадает и в ссылки на статику,
+# и в адрес API, поэтому префикс задаётся ровно одной переменной.
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+
+# Переопределение адреса API. Обычно не нужно: по умолчанию запросы уходят
+# относительно базового пути, а nginx проксирует их в backend. Задаётся только
+# когда фронтенд обращается к API напрямую, минуя прокси.
+ARG VITE_API_BASE_URL=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 COPY package*.json ./

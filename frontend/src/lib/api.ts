@@ -1,6 +1,12 @@
 import type { Current, Forecast, History, Location } from './types'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+// База API. Может быть как абсолютной (http://localhost:8000 при запуске без
+// прокси), так и относительной: на сервере приложение живёт по пути вида
+// /air-quality, и запросы должны уходить на /air-quality/api/... Значение по
+// умолчанию берётся из base-пути сборки, поэтому префикс задаётся один раз.
+// `||`, а не `??`: незаданная переменная сборки приходит пустой строкой, и её
+// тоже нужно считать отсутствующей, иначе префикс пути потеряется.
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.BASE_URL).replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(
@@ -13,7 +19,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  const url = new URL(`${BASE_URL}${path}`)
+  // Второй аргумент нужен для относительной базы: без него конструктор URL
+  // отвергает путь без схемы. Абсолютная база его просто игнорирует.
+  const url = new URL(`${BASE_URL}${path}`, window.location.origin)
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value))
 
   const response = await fetch(url.toString())
