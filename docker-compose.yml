@@ -1,7 +1,12 @@
 name: kbtu-air-quality
 
+# Имена сервисов начинаются с префикса проекта: на сервере КБТУ все проекты
+# живут в одной сети Docker, и общие имена вроде db, redis или frontend там
+# конфликтуют между собой. Локальная конфигурация повторяет серверную, чтобы
+# nginx.conf и переменные окружения были одинаковыми в обоих случаях.
+
 services:
-  db:
+  aqi-db:
     image: postgres:16-alpine
     container_name: aqi_db
     restart: unless-stopped
@@ -19,7 +24,7 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
+  aqi-redis:
     image: redis:7-alpine
     container_name: aqi_redis
     restart: unless-stopped
@@ -32,15 +37,15 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
+  aqi-api:
     build: ./backend
     container_name: aqi_api
     restart: unless-stopped
     env_file: .env
     depends_on:
-      db:
+      aqi-db:
         condition: service_healthy
-      redis:
+      aqi-redis:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -55,37 +60,41 @@ services:
       timeout: 5s
       retries: 5
 
-  worker:
+  aqi-worker:
     build: ./backend
     container_name: aqi_worker
     restart: unless-stopped
     env_file: .env
     depends_on:
-      api:
+      aqi-api:
         condition: service_healthy
     volumes:
       - models:/app/models
     command: ["python", "-m", "app.worker"]
 
-  bot:
+  aqi-bot:
     build: ./bot
     container_name: aqi_bot
     restart: unless-stopped
     env_file: .env
     depends_on:
-      api:
+      aqi-api:
         condition: service_healthy
     profiles: ["bot"]
 
-  frontend:
+  aqi-web:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+        # Локально приложение отдаётся с корня; на сервере путь задаётся
+        # в docker-compose.prod.yml. Адрес API не передаётся намеренно —
+        # запросы уходят относительно базового пути, а внутренний nginx
+        # проксирует /api/ в backend, поэтому CORS не задействован.
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
     container_name: aqi_frontend
     restart: unless-stopped
     depends_on:
-      - api
+      - aqi-api
     ports:
       - "5173:80"
 

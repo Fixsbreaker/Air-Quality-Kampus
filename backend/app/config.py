@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     admin_token: str = "change-me-in-production"
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
+    # Префикс пути, по которому приложение видно снаружи. На сервере проект
+    # отдаётся не с корня домена, а по адресу вида esg.kbtu.kz/air-quality,
+    # и Swagger должен запрашивать схему с учётом этого префикса. На сами
+    # маршруты не влияет: они остаются абсолютными, префикс снимает прокси.
+    root_path: str = ""
+
     # ---------- База данных ----------
     database_url: str = "postgresql+psycopg://aqi:aqi_password@localhost:5432/aqi"
 
